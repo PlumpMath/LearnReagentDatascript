@@ -47,6 +47,7 @@ state)))
 (defn add-betty! []
   (d/transact! conn [{:name "Betty"
                       :age 3
+                      :sex "f"
                       :breed "Wire Fox Terrier"
                       :owner "George Orwell"}]))
 
@@ -64,7 +65,8 @@ state)))
   (swap! app-state update-in [:number-users] inc))
 
 (defn woofie []
-  (let [dogs (bind conn q-dog-names)]
+  (let [dogs (bind conn q-unique-dogs)
+        dogpairs (bind conn q-pairings-purebreed)]
     [:div 
      [:header [:h1 "Welcome to Woofie"] [:p "The dog social networkd"]]
 
@@ -87,7 +89,7 @@ state)))
       [:ul
        (map 
         (fn [p] [:li (apply str (p 0) " and " (p 1))])
-        (d/q q-pairings-purebreed @dogs))]]
+        @dogpairs)]]
 
      ]))
 
