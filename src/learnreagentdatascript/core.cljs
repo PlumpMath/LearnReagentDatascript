@@ -16,18 +16,25 @@
 
 ;; Add some data
 (d/transact! conn
-             [{:name "Rex" :age 3 :sex :m
+             [{:name "Rex" :age 3 :sex "m"
                :breed "Alsatian" :owner "Marco Polo"}
-              {:name "Sally" :age 4 :sex :f
+              {:name "Sally" :age 4 :sex "f"
                :breed "Yorkshire Terrier" :owner "Mrs Pollywell"}
-              {:name "Snowy" :age 2 :sex :m
+              {:name "Snowy" :age 2 :sex "m"
                :breed "Wire Fox Terrier" :owner "Tintin"}
-              {:name "Same" :age 6 :sex :f
+              {:name "Same" :age 6 :sex "m"
                :breed "Basset Hound" :owner "Marco Polo"}
-              {:name "Same" :age 6 :sex :f
+              {:name "Same" :age 6 :sex "f"
                :breed "Alsatian" :owner "Guy Fawkes"}])
 
 (def q-unique-dogs '[:find ?n ?e :where [?e :name ?n]])
+(def q-pairings-purebreed '[:find ?m ?f ?e ?a
+                            :where [?e :name ?m]
+                                   [?e :sex "m"]
+                                   [?e :breed ?b]
+                                   [?a :name ?f]
+                                   [?a :sex "f"]
+                                   [?a :breed ?b]])
 
 (defn new-user! []
   (swap! app-state update-in [:number-users] inc))
@@ -49,6 +56,13 @@
        (map 
         (fn [n] [:li (str (n 0))])
         (d/q q-unique-dogs @conn))]]
+
+     [:div {:class "matches"}
+      [:h3 "Matches"]
+      [:ul
+       (map 
+        (fn [p] [:li (apply str (p 0) " and " (p 1))])
+        (d/q q-pairings-purebreed @conn))]]
 
      ]))
 
