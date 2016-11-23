@@ -1,13 +1,30 @@
 (ns learnreagentdatascript.core
   (:require [reagent.core :as reagent :refer [atom]]
-            [datascript.core :as d]))
+            [datascript.core :as d]
+            [cljs-uuid-utils.core :as uuid]))
 
 (enable-console-print!)
 
 (println "This text is printed from src/learnreagentdatascript/core.cljs. Go ahead and edit it and see reloading in action.")
 
-;; define your app data so that it doesn't get over-written on reload
+(defn bind
+  ([conn q]
+   (bind conn q (atom nil)))
+  ([conn q state]
+   (let [k (uuid/make-random-uuid)]
+     (reset! state (d/q q @conn))
+     (d/listen! conn k (fn [tx-report]
+                         (let [novelty (d/q q (:tx-data tx-report))]
+                           (when (not-empty novelty) ;; Only update if query results actually changed
+                             (reset! state (d/q q (:db-after tx-report)))))))
+     (set! (.-__key state) k)
+state)))
 
+(defn unbind
+  [conn state]
+(d/unlisten! conn (.-__key state)))
+
+;; define your app data so that it doesn't get over-written on reload
 (defonce app-state (atom {:number-users 0}))
 
 ;; Creates a Datascript "connection"
@@ -22,10 +39,16 @@
                :breed "Yorkshire Terrier" :owner "Mrs Pollywell"}
               {:name "Snowy" :age 2 :sex "m"
                :breed "Wire Fox Terrier" :owner "Tintin"}
-              {:name "Same" :age 6 :sex "m"
+              {:name "Fido" :age 6 :sex "m"
                :breed "Basset Hound" :owner "Marco Polo"}
               {:name "Same" :age 6 :sex "f"
                :breed "Alsatian" :owner "Guy Fawkes"}])
+
+(defn add-betty! []
+  (d/transact! conn [{:name "Betty"
+                      :age 3
+                      :breed "Wire Fox Terrier"
+                      :owner "George Orwell"}]))
 
 (def q-unique-dogs '[:find ?n ?e :where [?e :name ?n]])
 (def q-pairings-purebreed '[:find ?m ?f ?e ?a
@@ -35,12 +58,13 @@
                                    [?a :name ?f]
                                    [?a :sex "f"]
                                    [?a :breed ?b]])
+(def q-dog-names '[:find ?n ?e :where [?e :name ?n]])
 
 (defn new-user! []
   (swap! app-state update-in [:number-users] inc))
 
 (defn woofie []
-  (let [numdogs (:number-users @app-state)]
+  (let [dogs (bind conn q-dog-names)]
     [:div 
      [:header [:h1 "Welcome to Woofie"] [:p "The dog social networkd"]]
 
@@ -48,21 +72,22 @@
       [:p (str "Number of dogs on site: " (:number-users @app-state))]]
 
      [:div {:class "user-tools"}
-      [:button {:on-click new-user!} "Register"]]
+      [:button {:on-click new-user!} "Register"]
+      [:button {:on-click add-betty!} "Add betty"]]
 
      [:div {:class "members"}
       [:h3 "Members"]
       [:ul 
        (map 
         (fn [n] [:li (str (n 0))])
-        (d/q q-unique-dogs @conn))]]
+        @dogs)]]
 
      [:div {:class "matches"}
       [:h3 "Matches"]
       [:ul
        (map 
         (fn [p] [:li (apply str (p 0) " and " (p 1))])
-        (d/q q-pairings-purebreed @conn))]]
+        (d/q q-pairings-purebreed @dogs))]]
 
      ]))
 
